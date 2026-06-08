@@ -1,8 +1,9 @@
 /* Hábitos — Matriz de hábitos (alta fidelidad, editable) */
 const { useState, useEffect, useMemo, useRef } = React;
 
-/* ---------------- marco temporal demo ---------------- */
-const REF_Y = 2026, REF_M = 5 /*junio*/, REF_D = 23; // "hoy" de ejemplo
+/* ---------------- marco temporal: HOY real ---------------- */
+const _now = new Date();
+const REF_Y = _now.getFullYear(), REF_M = _now.getMonth(), REF_D = _now.getDate();
 const DOW = ["L","M","X","J","V","S","D"];
 const MES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 const DOWLONG = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
@@ -28,31 +29,21 @@ function initialGoals(){
     { name:"Proyecto personal", objs:["Escribir 30 min","Avanzar 1 tarea","Sin redes hasta mediodía"] },
   ];
   return g.map(go => {
-    const objetivos = go.objs.map(nm => mkObj(nm, null));
+    const objetivos = go.objs.map(nm => mkObj(nm, REF_SERIAL)); // empiezan hoy: días previos = "no registrado"
     return { id: uid(), name: go.name, objetivos };
   });
 }
 
-/* ---------------- datos históricos deterministas ---------------- */
+/* ---------------- estado por defecto ---------------- */
 function seeded(n){ const x = Math.sin(n * 97.13) * 10000; return x - Math.floor(x); }
-function bias(d){ return d >= 16 ? 1.0 : (d >= 11 ? 0.8 : 0.55); }
-// histórico de ejemplo por defecto (se usa si no hay marca explícita guardada)
-function seedDone(o, y, m, d){
-  const r = seeded(o.id * 131 + (y * 12 + m) * 733 + d * 17);
-  const b = (y === REF_Y && m === REF_M) ? bias(d) : 0.68; // mes actual: bloque reciente = racha; otros: ~68%
-  return r < b;
-}
+// Uso real: sin historial inventado. Un día sin marca = no cumplido.
+function seedDone(o, y, m, d){ return false; }
 
 /* ---------------- persistencia (localStorage) ---------------- */
-const LSKEY = "habitos.v2";
+const LSKEY = "habitos.v3";
 function buildInitial(){
-  const goals = initialGoals();
-  const marks = {}; // marks[objId]["y.m.d"] = true/false (sobrescribe el histórico de ejemplo)
-  const k = dayKey(REF_Y, REF_M, REF_D);
-  goals.forEach(g => g.objetivos.forEach((o, i, arr) => {
-    marks[o.id] = { [k]: i < Math.min(3, arr.length - 1) }; // hoy: 3 de 5 hechos al empezar
-  }));
-  return { goals, gi: 0, marks };
+  // Arranca limpio: metas y objetivos de ejemplo (editables), sin nada marcado.
+  return { goals: initialGoals(), gi: 0, marks: {} };
 }
 function loadState(){
   try {
